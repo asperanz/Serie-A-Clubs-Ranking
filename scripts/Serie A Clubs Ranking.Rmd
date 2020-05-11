@@ -1,0 +1,337 @@
+---
+title: "Serie A Clubs Ranking"
+author: "Alessandro Speranza"
+date: "3/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, message = FALSE, warning = FALSE}
+library(rvest)
+library(funModeling)
+library(tidyverse)
+library(lubridate)
+library(gganimate)
+library(ggrepel)
+library(RColorBrewer)
+```
+
+```{r, get data}
+# airq <- airquality
+# airq$Month <- format(ISOdate(2004,1:12,1),"%B")[airq$Month]
+```
+
+```{r, plot animated chart}
+# p <- ggplot(airq, aes(x= Day, y = Temp, group = Month)) + 
+#   geom_line(size = 1.0) +
+#   geom_segment(aes(xend = 31, yend = Temp), linetype = 2, colour = 'grey') +
+#   geom_point(size = 2) +
+#   geom_text(aes(x = 31.1, label = Month), hjust = 0) +
+#   transition_reveal(Day) +
+#   scale_color_viridis_d() +
+#   coord_cartesian(clip = 'off') +
+#   labs(title = 'Temperature in New York', y = 'Temperature (°F)') + 
+#   theme_minimal() + 
+#   theme(plot.margin = margin(5.5, 40, 5.5, 5.5),
+#         legend.position="none")
+# 
+# animate(p, fps= 2, end_pause = 30)
+```
+
+```{r, scraping serie A data }
+# da proporre a  https://letestedicalcio.it/andamento-delle-squadre-serie-a/
+# Siti interessanti
+# "https://www.transfermarkt.it/serie-a/gesamtspielplan/wettbewerb/IT1/saison_id/2019"
+
+page <- "http://1x2stats.com/it/ITA/Serie-A/calendario/"
+
+results <- page %>% 
+  read_html() %>% 
+  html_table(fill = TRUE)
+
+tab1 <- results[[1]]
+tab2 <- results[[2]]
+# tab3 <- results[[3]]
+# tab4 <- results[[4]]
+# tab5 <- results[[5]]
+# tab6 <- results[[6]]
+# tab7 <- results[[7]]
+# tab8 <- results[[8]]
+# tab9 <- results[[9]]
+# tab10 <- results[[10]]
+# tab11 <- results[[11]]
+# tab12 <- results[[12]]
+# tab13 <- results[[13]]
+# tab14 <- results[[14]]
+# tab15 <- results[[15]]
+# tab16 <- results[[16]]
+# tab17 <- results[[17]]
+# tab18 <- results[[18]]
+# tab19 <- results[[19]]
+# tab20 <- results[[20]]
+# tab21 <- results[[21]]
+# tab22 <- results[[22]]
+# tab23 <- results[[23]]
+# tab24 <- results[[24]]
+# tab25 <- results[[25]]
+# tab26 <- results[[26]]
+# tab27 <- results[[27]]
+# tab28 <- results[[28]]
+# tab29 <- results[[29]]
+# tab30 <- results[[30]]
+# tab31 <- results[[31]]
+# tab32 <- results[[32]]
+# tab33 <- results[[33]]
+# tab34 <- results[[34]]
+# tab35 <- results[[35]]
+# tab36 <- results[[36]]
+# tab37 <- results[[37]]
+# tab38 <- results[[38]]
+# tab39 <- results[[39]]
+# tab40 <- results[[40]]
+```
+
+```{r, tab1}
+# names(tab1)
+
+names(tab1)[1]<-"date_time"
+names(tab1)[2]<-"match"
+names(tab1)[3]<-"result_1st_half"
+names(tab1)[4]<-"result_2nd_half"
+
+tab1 <- tab1 %>% 
+  mutate(day = 1) %>% 
+  tidyr::separate(match, c("home_team", "away_team"), sep = "-", remove = FALSE) %>%
+  tidyr::separate(result_2nd_half, c("score_home_team", "score_away_team"), sep = "-", remove = FALSE) %>% 
+  mutate(home_team = str_trim(home_team),
+         away_team = str_trim(away_team)) %>%
+  mutate_at(c("score_home_team", "score_away_team"), as.numeric) %>%
+  mutate(points_home_team = str_trim(case_when(score_home_team > score_away_team ~ 3,
+                                               score_home_team == score_away_team ~ 1,
+                                               score_home_team < score_away_team ~ 0))) %>% 
+  mutate(points_away_team = str_trim(case_when(score_away_team > score_home_team ~ 3,
+                                               score_away_team == score_home_team ~ 1,
+                                               score_away_team < score_home_team ~ 0))) %>%
+  mutate(date = dmy_hm(date_time)) %>% 
+  tidyr::fill(date, .direction = "down") %>% 
+  mutate(date_day = day(date),
+         date_wday = wday(date, label = TRUE, abbr = FALSE),
+         date_month = months(date),
+         date_year = year(date))
+
+# df_status(tab1[,c("date_time","date")])
+```         
+
+```{r, tab1 ready dataset}
+home_teams_day1 <- tab1 %>% 
+  select(home_team, points_home_team, day) %>% 
+  rename(team = home_team,
+         points = points_home_team)
+
+away_teams_day1 <- tab1 %>% 
+  select(away_team, points_away_team, day) %>% 
+  rename(team = away_team,
+         points = points_away_team) 
+
+points_teams_day1 <- dplyr::bind_rows(home_teams_day1, away_teams_day1) %>%
+  mutate(points = as.numeric(points)) %>% 
+  arrange(desc(points))
+```
+
+```{r}
+# Day0 data
+teams_day0 <- points_teams_day1$team
+points_day0 <- 0
+day_day0 <- 0
+
+points_teams_day0 <- tibble(team = teams_day0, 
+                            points = points_day0, 
+                            day = day_day0)
+
+df_status(points_teams_day0)
+```
+
+```{r, tab2}
+names(tab2)[1]<-"date_time"
+names(tab2)[2]<-"match"
+names(tab2)[3]<-"result_1st_half"
+names(tab2)[4]<-"result_2nd_half"
+
+tab2 <- tab2 %>% 
+  mutate(day = 2) %>% 
+  tidyr::separate(match, c("home_team", "away_team"), sep = "-", remove = FALSE) %>%
+  tidyr::separate(result_2nd_half, c("score_home_team", "score_away_team"), sep = "-", remove = FALSE) %>% 
+  mutate(home_team = str_trim(home_team),
+         away_team = str_trim(away_team)) %>%
+  mutate_at(c("score_home_team", "score_away_team"), as.numeric) %>%
+  mutate(points_home_team = str_trim(case_when(score_home_team > score_away_team ~ 3,
+                                               score_home_team == score_away_team ~ 1,
+                                               score_home_team < score_away_team ~ 0))) %>% 
+  mutate(points_away_team = str_trim(case_when(score_away_team > score_home_team ~ 3,
+                                               score_away_team == score_home_team ~ 1,
+                                               score_away_team < score_home_team ~ 0))) %>%
+  mutate(date = dmy_hm(date_time)) %>% 
+  tidyr::fill(date, .direction = "down") %>% 
+  mutate(date_day = day(date),
+         date_wday = wday(date, label = TRUE, abbr = FALSE),
+         date_month = months(date),
+         date_year = year(date))
+
+```         
+
+```{r, tab2 ready dataset}
+# names(tab2)
+
+home_teams_day2 <- tab2 %>% 
+  select(home_team, points_home_team, day) %>% 
+  rename(team = home_team,
+         points = points_home_team)
+
+away_teams_day2 <- tab2 %>% 
+  select(away_team, points_away_team, day) %>% 
+  rename(team = away_team,
+         points = points_away_team) 
+
+points_teams_day2 <- dplyr::bind_rows(home_teams_day2, away_teams_day2) %>%
+  mutate(points = as.numeric(points)) %>% 
+  arrange(desc(points))
+```
+
+```{r}
+# Sommare i punti del precedente tab a quelli dell'ultimo tab
+points_teams_day2 <- inner_join(points_teams_day2, points_teams_day1, by = "team") %>%
+  mutate(points = points.x + points.y) %>%
+  rename(day = day.x) %>% 
+  select(team, points, day) %>% 
+  arrange(desc(points))
+
+# Fare apparire sull'asse x tutte le giornate
+```
+
+
+```{r}
+# Plotting the results
+points_teams_final <- rbind(points_teams_day0,
+                            points_teams_day1,
+                            points_teams_day2) %>% 
+  mutate(points = as.numeric(points),
+         day = as.numeric(day))
+
+# points_teams_final <- points_teams_final %>%
+#   filter(team %in% c("Milan", "Roma","Juventus", "Torino", "Sassuolo"))
+# filter(team %in% c("Milan", "Torino", "Sassuolo"))
+
+
+# See available RColorBrewer palettes
+#display.brewer.all()
+#display.brewer.pal(n = 20, name = 'BrBG')
+
+# nb.cols <- 20
+# mycolors <- colorRampPalette(brewer.pal(11, "BrBG"))(nb.cols)
+
+# cols <- brewer.pal(11, "BrBG")
+# mycolors <- colorRampPalette(cols)
+
+# cbPalette <- c("#800000", 
+#                "#336600", 
+#                "#990033", 
+#                "#660066", 
+#                "#333399", 
+#                "#004d4d", 
+#                "#0066cc", 
+#                "#b32d00", 
+#                "#4d4d33",
+#                "#ff0066",
+#                "#009900",
+#                "#997a00",
+#                "#862d2d",
+#                "#ff8c1a",
+#                "#ff3300",
+#                "#2d862d",
+#                "#000033",
+#                "#006699",
+#                "#cc9900",
+#                "#4d2600")
+
+p <- ggplot(points_teams_final, aes(x= day, 
+                                    y = points, 
+                                    group = team, 
+                                    color = dplyr::case_when (team == "Milan" ~ "Milan_color",
+                                                              team == "Udinese" ~ "Udinese_color",
+                                                              team == "Torino" ~ "Torino_color",
+                                                              team == "Inter" ~ "Inter_color",
+                                                              team == "Juventus" ~ "Juventus_color",
+                                                              team == "Napoli" ~ "Napoli_color",
+                                                              team == "Brescia" ~ "Brescia_color",
+                                                              team == "Lazio" ~ "Lazio_color",
+                                                              team == "Atalanta" ~ "Atalanta_color",
+                                                              team == "Hellas Verona" ~ "Hellas Verona_color",
+                                                              team == "Roma" ~ "Roma_color",
+                                                              team == "Bologna" ~ "Bologna_color",
+                                                              team == "Genoa" ~ "Genoa_color",
+                                                              team == "Parma" ~ "Parma_color",
+                                                              team == "Fiorentina" ~ "Fiorentina_color",
+                                                              team == "Cagliari" ~ "Cagliari_color",
+                                                              team == "Sampdoria" ~ "Sampdoria_color",
+                                                              team == "Spal" ~ "Spal_color",
+                                                              team == "Sassuolo" ~ "Sassuolo_color",
+                                                              team == "Lecce" ~ "Lecce_color"
+                                    ))) +
+  geom_line(size = 1.5) +
+  geom_segment(aes(xend = 40, yend = points), linetype = 2, colour = 'grey') +
+  geom_point(size = 2) +
+  # geom_text(aes(x = 41.1, label = team), hjust = 0, vjust = 0, fontface = "bold", position = position_jitter(width = 0, height = 0.3, seed = 42)) +
+  # geom_label(aes(x = 41.1, label = team), hjust = 0, vjust = 0, fontface = "bold", position = position_jitter(seed = 42), check_overlap = TRUE, label.size = 0.05) +
+  geom_text_repel(aes(x = 41.1, label = team), nudge_x = 0.1, nudge_y = 0.1, hjust = 0, fontface = "bold", direction = c("x"), min.segment.length = 50, seed = 42) +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) +
+  transition_reveal(day) +
+  # scale_colour_hue(l=40) +
+  # scale_color_manual(values = cbPalette) +
+  scale_color_manual(values = c("Milan_color" = "#FB090B", 
+                                "Udinese_color" = "#000000",
+                                "Torino_color" = "#7C2316",
+                                								                "Inter_color" = "#06367D",
+                                                                "Juventus_color" = "#000000",
+                                                                "Napoli_color" = "#2651A5",
+                                                                "Brescia_color" = "#075DA8",
+                                                                "Lazio_color" = "#94DFF8",
+                                                                "Atalanta_color" = "#006EB2",
+                                                                "Hellas Verona_color" = "#330099",
+                                                                "Roma_color" = "#EF6A0C",
+                                                                "Bologna_color" = "#2C3965",
+                                                                "Genoa_color" = "#001E57",
+                                                                "Parma_color" = "#FAD233",
+                                                                "Fiorentina_color" = "#5D479D",
+                                                                "Cagliari_color" = "#9E142D",
+                                                                "Sampdoria_color" = "#004996",
+                                                                "Spal_color" = "#00A3DD",
+                                                                "Sassuolo_color" = "#00A54F",
+                                                                "Lecce_color" = "#ED1B23"
+  )) +
+  # scale_color_viridis_d() +
+  coord_cartesian(clip = 'off') +
+  labs(title = 'Dynamic Seria A Rank', x = "Day", y = 'Points') + 
+  theme_minimal() + 
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5),
+        legend.position="none")
+
+#animate(p, fps= 4, end_pause = 30)
+
+# adjust the animation settings 
+animate(p, 
+        width = 900, # 900px wide
+        height = 600, # 600px high
+        nframes = 200, # 200 frames
+        fps = 10,
+        end_pause = 30) # 10 frames per second
+```
+
+```{r}
+# Save the last created animation to the current directory
+anim_save("Teams ranking for the Serie A.gif", animation = last_animation(), path = "./Output")
+```
+
